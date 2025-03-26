@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Prediction Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #e3350d;
+            text-align: center;
+        }
+        .result-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .battle {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 30px 0;
+        }
+        .pokemon {
+            text-align: center;
+        }
+        .pokemon h2 {
+            margin-bottom: 5px;
+        }
+        .vs {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b5ba7;
+        }
+        .winner {
+            color: #e3350d;
+            font-size: 28px;
+            margin: 20px 0;
+        }
+        .back-btn {
+            background-color: #3b5ba7;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        .back-btn:hover {
+            background-color: #2a4078;
+        }
+        .highlight {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        .auth-nav {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        .auth-nav a {
+            color: #3b5ba7;
+            text-decoration: none;
+            margin-left: 15px;
+        }
+        .auth-nav a:hover {
+            text-decoration: underline;
+        }
+        .user-info {
+            color: #333;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-nav">
+        {% if current_user.is_authenticated %}
+            <span class="user-info">Welcome, {{ current_user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </div>
+    
+    <h1>Battle Prediction Result</h1>
+    <div class="result-container">
+        <div class="battle">
+            <div class="pokemon {% if result.winner == 'Pokemon 1' %}highlight{% endif %}">
+                <h2>{{ result.pokemon1 }}</h2>
+            </div>
+            <div class="vs">VS</div>
+            <div class="pokemon {% if result.winner == 'Pokemon 2' %}highlight{% endif %}">
+                <h2>{{ result.pokemon2 }}</h2>
+            </div>
+        </div>
+        
+        <div class="winner">
+            {% if result.winner == 'Pokemon 1' %}
+                {{ result.pokemon1 }} wins!
+            {% else %}
+                {{ result.pokemon2 }} wins!
+            {% endif %}
+        </div>
+        
+        <a href="/" class="back-btn">Search for Another Battle</a>
+    </div>
+</body>
+</html> 

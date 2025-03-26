@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon Battle Predictor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #e3350d;
+            text-align: center;
+        }
+        .battle-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3b5ba7;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 20px auto 0;
+        }
+        button:hover {
+            background-color: #2a4078;
+        }
+        .pokemon-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .pokemon-select {
+            width: 48%;
+        }
+        .search-box {
+            margin-bottom: 10px;
+        }
+        .filter-options {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .filter-options select {
+            width: 100%;
+            margin-bottom: 6px;
+        }
+        .filter-group {
+            width: 48%;
+        }
+        .filter-label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 2px;
+            color: #666;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .note {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-left: 4px solid #3b5ba7;
+            font-size: 14px;
+        }
+        .pokemon-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        .pokemon-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .pokemon-item:hover {
+            background-color: #f5f5f5;
+        }
+        .no-results {
+            padding: 10px;
+            font-style: italic;
+            color: #999;
+            text-align: center;
+        }
+        .auth-nav {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        .auth-nav a {
+            color: #3b5ba7;
+            text-decoration: none;
+            margin-left: 15px;
+        }
+        .auth-nav a:hover {
+            text-decoration: underline;
+        }
+        .user-info {
+            color: #333;
+            font-weight: bold;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .flash-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-message.danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-nav">
+        {% if current_user.is_authenticated %}
+            <span class="user-info">Welcome, {{ current_user.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}">Register</a>
+        {% endif %}
+    </div>
+    
+    <h1>Pokemon Battle Predictor</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <div class="battle-form">
+        {% if current_user.is_authenticated %}
+            <form action="/predict" method="post" id="battle-form">
+                <div class="pokemon-container">
+                    <div class="pokemon-select">
+                        <div class="form-group">
+                            <label for="pokemon1">First Pokemon:</label>
+                            <input type="text" id="pokemon1-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
+                            <div class="filter-options">
+                                <div class="filter-group">
+                                    <span class="filter-label">Type 1:</span>
+                                    <select id="pokemon1-type1">
+                                        <option value="">Any Type 1</option>
+                                        <option value="Normal">Normal</option>
+                                        <option value="Fire">Fire</option>
+                                        <option value="Water">Water</option>
+                                        <option value="Grass">Grass</option>
+                                        <option value="Flying">Flying</option>
+                                        <option value="Fighting">Fighting</option>
+                                        <option value="Poison">Poison</option>
+                                        <option value="Electric">Electric</option>
+                                        <option value="Ground">Ground</option>
+                                        <option value="Rock">Rock</option>
+                                        <option value="Psychic">Psychic</option>
+                                        <option value="Ice">Ice</option>
+                                        <option value="Bug">Bug</option>
+                                        <option value="Ghost">Ghost</option>
+                                        <option value="Steel">Steel</option>
+                                        <option value="Dragon">Dragon</option>
+                                        <option value="Dark">Dark</option>
+                                        <option value="Fairy">Fairy</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Type 2:</span>
+                                    <select id="pokemon1-type2">
+                                        <option value="">Any Type 2</option>
+                                        <option value="Normal">Normal</option>
+                                        <option value="Fire">Fire</option>
+                                        <option value="Water">Water</option>
+                                        <option value="Grass">Grass</option>
+                                        <option value="Flying">Flying</option>
+                                        <option value="Fighting">Fighting</option>
+                                        <option value="Poison">Poison</option>
+                                        <option value="Electric">Electric</option>
+                                        <option value="Ground">Ground</option>
+                                        <option value="Rock">Rock</option>
+                                        <option value="Psychic">Psychic</option>
+                                        <option value="Ice">Ice</option>
+                                        <option value="Bug">Bug</option>
+                                        <option value="Ghost">Ghost</option>
+                                        <option value="Steel">Steel</option>
+                                        <option value="Dragon">Dragon</option>
+                                        <option value="Dark">Dark</option>
+                                        <option value="Fairy">Fairy</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="width: 100%;">
+                                    <span class="filter-label">Generation:</span>
+                                    <select id="pokemon1-generation">
+                                        <option value="">Any Generation</option>
+                                        <option value="1">Gen 1</option>
+                                        <option value="2">Gen 2</option>
+                                        <option value="3">Gen 3</option>
+                                        <option value="4">Gen 4</option>
+                                        <option value="5">Gen 5</option>
+                                        <option value="6">Gen 6</option>
+                                        <option value="7">Gen 7</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="pokemon1-list" class="pokemon-list"></div>
+                            <input type="hidden" name="pokemon1" id="pokemon1" required>
+                            <div id="pokemon1-selection" style="margin-top: 10px; font-weight: bold;"></div>
+                        </div>
+                    </div>
+                    <div class="pokemon-select">
+                        <div class="form-group">
+                            <label for="pokemon2">Second Pokemon:</label>
+                            <input type="text" id="pokemon2-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
+                            <div class="filter-options">
+                                <div class="filter-group">
+                                    <span class="filter-label">Type 1:</span>
+                                    <select id="pokemon2-type1">
+                                        <option value="">Any Type 1</option>
+                                        <option value="Normal">Normal</option>
+                                        <option value="Fire">Fire</option>
+                                        <option value="Water">Water</option>
+                                        <option value="Grass">Grass</option>
+                                        <option value="Flying">Flying</option>
+                                        <option value="Fighting">Fighting</option>
+                                        <option value="Poison">Poison</option>
+                                        <option value="Electric">Electric</option>
+                                        <option value="Ground">Ground</option>
+                                        <option value="Rock">Rock</option>
+                                        <option value="Psychic">Psychic</option>
+                                        <option value="Ice">Ice</option>
+                                        <option value="Bug">Bug</option>
+                                        <option value="Ghost">Ghost</option>
+                                        <option value="Steel">Steel</option>
+                                        <option value="Dragon">Dragon</option>
+                                        <option value="Dark">Dark</option>
+                                        <option value="Fairy">Fairy</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <span class="filter-label">Type 2:</span>
+                                    <select id="pokemon2-type2">
+                                        <option value="">Any Type 2</option>
+                                        <option value="Normal">Normal</option>
+                                        <option value="Fire">Fire</option>
+                                        <option value="Water">Water</option>
+                                        <option value="Grass">Grass</option>
+                                        <option value="Flying">Flying</option>
+                                        <option value="Fighting">Fighting</option>
+                                        <option value="Poison">Poison</option>
+                                        <option value="Electric">Electric</option>
+                                        <option value="Ground">Ground</option>
+                                        <option value="Rock">Rock</option>
+                                        <option value="Psychic">Psychic</option>
+                                        <option value="Ice">Ice</option>
+                                        <option value="Bug">Bug</option>
+                                        <option value="Ghost">Ghost</option>
+                                        <option value="Steel">Steel</option>
+                                        <option value="Dragon">Dragon</option>
+                                        <option value="Dark">Dark</option>
+                                        <option value="Fairy">Fairy</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group" style="width: 100%;">
+                                    <span class="filter-label">Generation:</span>
+                                    <select id="pokemon2-generation">
+                                        <option value="">Any Generation</option>
+                                        <option value="1">Gen 1</option>
+                                        <option value="2">Gen 2</option>
+                                        <option value="3">Gen 3</option>
+                                        <option value="4">Gen 4</option>
+                                        <option value="5">Gen 5</option>
+                                        <option value="6">Gen 6</option>
+                                        <option value="7">Gen 7</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="pokemon2-list" class="pokemon-list"></div>
+                            <input type="hidden" name="pokemon2" id="pokemon2" required>
+                            <div id="pokemon2-selection" style="margin-top: 10px; font-weight: bold;"></div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" id="predict-btn">Predict Battle Winner</button>
+                <div class="loading" id="loading-message">Predicting battle outcome... Please wait.</div>
+            </form>
+        {% else %}
+            <div style="text-align: center; padding: 30px;">
+                <p>Please <a href="{{ url_for('login') }}">login</a> or <a href="{{ url_for('register') }}">register</a> to use the Pokemon Battle Predictor.</p>
+            </div>
+        {% endif %}
+        <div class="note">
+            <p>This application uses a machine learning model to predict Pokemon battle outcomes. Search for Pokemon by their ID number, name, type, or generation, then select two Pokemon and click "Predict Battle Winner" to see which one would win in a battle.</p>
+        </div>
+    </div>
+
+    {% if current_user.is_authenticated %}
+    <script>
+        // Pokemon data will be loaded from the server
+        let pokemonData = {{ pokemon_data|safe }};
+
+        // Function to filter and display Pokemon in the list
+        function filterPokemon(searchText, type1Filter, type2Filter, genFilter, listElement, inputElement, selectionElement) {
+            let results = [];
+            searchText = searchText.toLowerCase();
+            
+            for (let pokemon of pokemonData) {
+                // Check if Pokemon matches the search criteria
+                let matchesSearch = false;
+                if (searchText === '') {
+                    matchesSearch = true;
+                } else if (pokemon.id.toString() === searchText) {
+                    matchesSearch = true;
+                } else if (pokemon.name.toLowerCase().includes(searchText)) {
+                    matchesSearch = true;
+                } else if (pokemon.type1.toLowerCase().includes(searchText) || 
+                          (pokemon.type2 && pokemon.type2.toLowerCase().includes(searchText))) {
+                    matchesSearch = true;
+                } else if (pokemon.generation.toString() === searchText) {
+                    matchesSearch = true;
+                }
+                
+                // Check if Pokemon matches the type1 filter
+                let matchesType1 = true;
+                if (type1Filter !== '') {
+                    matchesType1 = pokemon.type1 === type1Filter;
+                }
+                
+                // Check if Pokemon matches the type2 filter
+                let matchesType2 = true;
+                if (type2Filter !== '') {
+                    matchesType2 = pokemon.type2 === type2Filter;
+                }
+                
+                // Check if Pokemon matches the generation filter
+                let matchesGen = true;
+                if (genFilter !== '') {
+                    matchesGen = pokemon.generation.toString() === genFilter;
+                }
+                
+                // If Pokemon matches all criteria, add to results
+                if (matchesSearch && matchesType1 && matchesType2 && matchesGen) {
+                    results.push(pokemon);
+                }
+            }
+            
+            // Display results
+            listElement.innerHTML = '';
+            listElement.style.display = 'block';
+            
+            if (results.length === 0) {
+                listElement.innerHTML = '<div class="no-results">No Pokemon exists</div>';
+                return;
+            }
+            
+            for (let result of results) {
+                let item = document.createElement('div');
+                item.className = 'pokemon-item';
+                item.innerHTML = `#${result.id} ${result.name} (${result.type1}${result.type2 ? '/' + result.type2 : ''}) - Gen ${result.generation}`;
+                
+                item.addEventListener('click', function() {
+                    inputElement.value = result.name;
+                    selectionElement.textContent = `Selected: #${result.id} ${result.name} (${result.type1}${result.type2 ? '/' + result.type2 : ''})`;
+                    listElement.style.display = 'none';
+                });
+                
+                listElement.appendChild(item);
+            }
+        }
+        
+        // Function to check if any filter is active and show results automatically
+        function updatePokemon1List() {
+            const searchText = document.getElementById('pokemon1-search').value;
+            const type1Filter = document.getElementById('pokemon1-type1').value;
+            const type2Filter = document.getElementById('pokemon1-type2').value;
+            const genFilter = document.getElementById('pokemon1-generation').value;
+            const listElement = document.getElementById('pokemon1-list');
+            const inputElement = document.getElementById('pokemon1');
+            const selectionElement = document.getElementById('pokemon1-selection');
+            
+            // Show results if any filter is selected, even if search text is empty
+            if (type1Filter !== '' || type2Filter !== '' || genFilter !== '' || searchText !== '') {
+                filterPokemon(searchText, type1Filter, type2Filter, genFilter, listElement, inputElement, selectionElement);
+            } else {
+                listElement.style.display = 'none';
+            }
+        }
+        
+        function updatePokemon2List() {
+            const searchText = document.getElementById('pokemon2-search').value;
+            const type1Filter = document.getElementById('pokemon2-type1').value;
+            const type2Filter = document.getElementById('pokemon2-type2').value;
+            const genFilter = document.getElementById('pokemon2-generation').value;
+            const listElement = document.getElementById('pokemon2-list');
+            const inputElement = document.getElementById('pokemon2');
+            const selectionElement = document.getElementById('pokemon2-selection');
+            
+            // Show results if any filter is selected, even if search text is empty
+            if (type1Filter !== '' || type2Filter !== '' || genFilter !== '' || searchText !== '') {
+                filterPokemon(searchText, type1Filter, type2Filter, genFilter, listElement, inputElement, selectionElement);
+            } else {
+                listElement.style.display = 'none';
+            }
+        }
+        
+        // Set up event listeners for Pokemon 1
+        document.getElementById('pokemon1-search').addEventListener('input', updatePokemon1List);
+        document.getElementById('pokemon1-type1').addEventListener('change', updatePokemon1List);
+        document.getElementById('pokemon1-type2').addEventListener('change', updatePokemon1List);
+        document.getElementById('pokemon1-generation').addEventListener('change', updatePokemon1List);
+        
+        // Set up event listeners for Pokemon 2
+        document.getElementById('pokemon2-search').addEventListener('input', updatePokemon2List);
+        document.getElementById('pokemon2-type1').addEventListener('change', updatePokemon2List);
+        document.getElementById('pokemon2-type2').addEventListener('change', updatePokemon2List);
+        document.getElementById('pokemon2-generation').addEventListener('change', updatePokemon2List);
+        
+        // Close the Pokemon list when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('#pokemon1-list') && 
+                !event.target.closest('#pokemon1-search') &&
+                !event.target.closest('#pokemon1-type1') &&
+                !event.target.closest('#pokemon1-type2') &&
+                !event.target.closest('#pokemon1-generation')) {
+                document.getElementById('pokemon1-list').style.display = 'none';
+            }
+            if (!event.target.closest('#pokemon2-list') && 
+                !event.target.closest('#pokemon2-search') &&
+                !event.target.closest('#pokemon2-type1') &&
+                !event.target.closest('#pokemon2-type2') &&
+                !event.target.closest('#pokemon2-generation')) {
+                document.getElementById('pokemon2-list').style.display = 'none';
+            }
+        });
+        
+        // Form submission validation
+        document.getElementById('battle-form').addEventListener('submit', function(event) {
+            const pokemon1 = document.getElementById('pokemon1').value;
+            const pokemon2 = document.getElementById('pokemon2').value;
+            
+            if (!pokemon1 || !pokemon2) {
+                event.preventDefault();
+                alert('Please select two Pokemon to battle');
+                return;
+            }
+            
+            document.getElementById('predict-btn').disabled = true;
+            document.getElementById('loading-message').style.display = 'block';
+        });
+    </script>
+    {% endif %}
+</body>
+</html> 
