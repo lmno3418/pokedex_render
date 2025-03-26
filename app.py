@@ -63,9 +63,8 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
-# Create tables
-@app.before_first_request
-def create_tables():
+# Create database tables
+with app.app_context():
     db.create_all()
 
 
