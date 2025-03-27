@@ -615,15 +615,8 @@
     </div>
     
     <script>
-        // Pokemon data passed from Flask
-        var pokemonData;
-        try {
-            pokemonData = JSON.parse('{{ pokemon_data|tojson()|safe }}');
-            console.log("Successfully parsed Pokemon data:", pokemonData.length, "Pokemon found");
-        } catch (error) {
-            console.error("Error parsing Pokemon data:", error);
-            pokemonData = [];
-        }
+        // Pokemon data passed from Flask - directly embed the data
+        var pokemonData = {{ pokemon_data|safe }};
         
         // DOM elements
         const pokemon1List = document.getElementById('pokemon1List');
@@ -634,74 +627,61 @@
         const loadingIndicator = document.getElementById('loadingIndicator');
         const battleForm = document.getElementById('battleForm');
         
-        // Function to populate Pokemon lists
+        // Function to populate Pokemon lists with all Pokemon
         function populatePokemonLists() {
-            console.log("Populating Pokemon lists...");
+            console.log("Populating Pokemon lists with all Pokemon data...");
             
             // Clear existing options
             if (pokemon1List) pokemon1List.innerHTML = '';
             if (pokemon2List) pokemon2List.innerHTML = '';
             
-            // Add Pokemon to both lists
-            if (pokemonData && pokemon1List && pokemon2List) {
-                pokemonData.forEach(pokemon => {
-                    // Create options for Pokemon 1
-                    const option1 = document.createElement('option');
-                    option1.value = pokemon.name;
-                    option1.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
-                    option1.dataset.id = pokemon.id;
-                    option1.dataset.type1 = pokemon.type1;
-                    option1.dataset.type2 = pokemon.type2 || '';
-                    option1.dataset.gen = pokemon.generation;
-                    option1.dataset.legendary = pokemon.legendary;
-                    
-                    // Create options for Pokemon 2
-                    const option2 = option1.cloneNode(true);
-                    
-                    pokemon1List.appendChild(option1);
-                    pokemon2List.appendChild(option2);
+            // Check if we have valid data and elements
+            if (!pokemonData || !pokemon1List || !pokemon2List) {
+                console.error("Missing data or elements:", {
+                    pokemonData: !!pokemonData,
+                    pokemon1List: !!pokemon1List,
+                    pokemon2List: !!pokemon2List
                 });
-                
-                // Display initial selections
-                updateSelectedPokemon();
-                
-                console.log("Pokemon lists populated with", pokemonData.length, "Pokemon");
-            } else {
-                console.error("Could not initialize Pokemon lists:", { 
-                    pokemonData: !!pokemonData, 
-                    pokemon1List: !!pokemon1List, 
-                    pokemon2List: !!pokemon2List 
-                });
+                return;
             }
-        }
-        
-        // Function to filter Pokemon by search term
-        function filterPokemon(input, listId) {
-            console.log("Filtering by search term:", input.value, "for list:", listId);
-            const searchTerm = input.value.toLowerCase();
-            const list = document.getElementById(listId);
             
-            // Apply combined filters
-            applyAllFilters(listId);
+            // Add Pokemon to both lists
+            for (let i = 0; i < pokemonData.length; i++) {
+                const pokemon = pokemonData[i];
+                
+                // Create options for Pokemon 1
+                const option1 = document.createElement('option');
+                option1.value = pokemon.name;
+                option1.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
+                
+                // Create options for Pokemon 2
+                const option2 = document.createElement('option');
+                option2.value = pokemon.name;
+                option2.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
+                
+                pokemon1List.appendChild(option1);
+                pokemon2List.appendChild(option2);
+            }
+            
+            console.log(`Added ${pokemonData.length} Pokemon to selection lists`);
+            
+            // Initialize the selected Pokemon display
+            updateSelectedPokemon();
         }
         
-        // Function to apply all filters (search + dropdowns)
-        function applyAllFilters(listId) {
-            const list = document.getElementById(listId);
-            const options = list.options;
+        // Function to filter Pokemon by search term and other filters
+        function filterPokemon(searchInput, listId) {
             const isFirstList = listId === 'pokemon1List';
-            
-            // Get search value
-            const searchInput = document.getElementById(isFirstList ? 'pokemon1Search' : 'pokemon2Search');
-            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            const list = document.getElementById(listId);
             
             // Get filter values
+            const searchTerm = searchInput.value.toLowerCase();
             const type1Filter = document.getElementById(isFirstList ? 'type1Filter1' : 'type1Filter2').value;
             const type2Filter = document.getElementById(isFirstList ? 'type2Filter1' : 'type2Filter2').value;
             const genFilter = document.getElementById(isFirstList ? 'genFilter1' : 'genFilter2').value;
             const legendaryFilter = document.getElementById(isFirstList ? 'legendaryFilter1' : 'legendaryFilter2').value;
             
-            console.log("Applying filters for", listId, ":", {
+            console.log(`Filtering ${listId} with:`, {
                 search: searchTerm,
                 type1: type1Filter,
                 type2: type2Filter,
@@ -709,78 +689,71 @@
                 legendary: legendaryFilter
             });
             
-            let visibleCount = 0;
+            // Clear previous options
+            list.innerHTML = '';
             
-            // Create a new array to store filtered options
-            const filteredOptions = [];
-            
-            // Remove all options first
-            while (list.options.length > 0) {
-                list.remove(0);
-            }
-            
-            // Add only the filtered Pokemon
-            pokemonData.forEach(pokemon => {
-                // Check if Pokemon matches all filters
-                let shouldShow = true;
+            // Filter Pokemon and add matching ones to the list
+            let matchCount = 0;
+            for (let i = 0; i < pokemonData.length; i++) {
+                const pokemon = pokemonData[i];
+                let matches = true;
                 
                 // Apply search filter
                 if (searchTerm && !pokemon.name.toLowerCase().includes(searchTerm)) {
-                    shouldShow = false;
+                    matches = false;
                 }
                 
-                // Apply Type 1 filter
-                if (shouldShow && type1Filter && pokemon.type1 !== type1Filter) {
-                    shouldShow = false;
+                // Apply type 1 filter
+                if (matches && type1Filter && pokemon.type1 !== type1Filter) {
+                    matches = false;
                 }
                 
-                // Apply Type 2 filter
-                if (shouldShow && type2Filter) {
-                    if (type2Filter === 'None') {
-                        shouldShow = !pokemon.type2;
+                // Apply type 2 filter
+                if (matches && type2Filter) {
+                    if (pokemon.type2) {
+                        if (pokemon.type2 !== type2Filter) {
+                            matches = false;
+                        }
                     } else {
-                        shouldShow = pokemon.type2 === type2Filter;
+                        matches = false;
                     }
                 }
                 
-                // Apply Generation filter
-                if (shouldShow && genFilter && String(pokemon.generation) !== genFilter) {
-                    shouldShow = false;
+                // Apply generation filter
+                if (matches && genFilter && pokemon.generation.toString() !== genFilter) {
+                    matches = false;
                 }
                 
-                // Apply Legendary filter
-                if (shouldShow && legendaryFilter !== '') {
-                    const isLegendary = String(pokemon.legendary) === 'true';
+                // Apply legendary filter
+                if (matches && legendaryFilter !== '') {
+                    const isLegendary = pokemon.legendary === true || pokemon.legendary === 'true';
                     const wantLegendary = legendaryFilter === 'true';
-                    shouldShow = isLegendary === wantLegendary;
+                    if (isLegendary !== wantLegendary) {
+                        matches = false;
+                    }
                 }
                 
-                // If Pokemon should be shown, add it to the select
-                if (shouldShow) {
+                // If Pokemon matches all filters, add it to the list
+                if (matches) {
                     const option = document.createElement('option');
                     option.value = pokemon.name;
                     option.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
-                    option.dataset.id = pokemon.id;
-                    option.dataset.type1 = pokemon.type1;
-                    option.dataset.type2 = pokemon.type2 || '';
-                    option.dataset.gen = pokemon.generation;
-                    option.dataset.legendary = pokemon.legendary;
-                    
                     list.appendChild(option);
-                    visibleCount++;
+                    matchCount++;
                 }
-            });
+            }
             
-            console.log(`Showing ${visibleCount} Pokemon in ${listId} after filtering`);
+            console.log(`Found ${matchCount} matching Pokemon for ${listId}`);
             
-            // Update the selected Pokemon display after filtering
+            // Update the selected Pokemon display
             updateSelectedPokemon();
         }
         
-        // Function to apply filters
+        // Function to handle all filter changes
         function applyFilters(listId) {
-            // Use the combined filter function
-            applyAllFilters(listId);
+            const isFirstList = listId === 'pokemon1List';
+            const searchInput = document.getElementById(isFirstList ? 'pokemon1Search' : 'pokemon2Search');
+            filterPokemon(searchInput, listId);
         }
         
         // Function to update selected Pokemon display
@@ -808,49 +781,52 @@
         
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
-            try {
-                console.log("DOM content loaded, initializing Pokemon selector");
-                // Log data for debugging
-                console.log("Pokemon data type:", typeof pokemonData);
-                console.log("Pokemon data length:", pokemonData ? pokemonData.length : "undefined");
-                
-                // Populate Pokemon lists
-                populatePokemonLists();
-                
-                console.log("Pokemon lists initialized");
-                
-                // Add event listeners
-                if (pokemon1List) pokemon1List.addEventListener('change', updateSelectedPokemon);
-                if (pokemon2List) pokemon2List.addEventListener('change', updateSelectedPokemon);
-                
-                // Add event listeners for search inputs
-                const pokemon1Search = document.getElementById('pokemon1Search');
-                const pokemon2Search = document.getElementById('pokemon2Search');
-                
-                if (pokemon1Search) {
-                    pokemon1Search.addEventListener('input', function() {
-                        filterPokemon(this, 'pokemon1List');
-                    });
-                }
-                
-                if (pokemon2Search) {
-                    pokemon2Search.addEventListener('input', function() {
-                        filterPokemon(this, 'pokemon2List');
-                    });
-                }
-                
-                // Form submission handling
-                if (battleForm) {
-                    battleForm.addEventListener('submit', function() {
-                        loadingIndicator.style.display = 'block';
-                        predictButton.disabled = true;
-                    });
-                    console.log("Battle form event handlers registered");
-                } else {
-                    console.error("Battle form element not found");
-                }
-            } catch (error) {
-                console.error("Error initializing Pokemon selector:", error);
+            console.log("DOM content loaded, initializing Pokemon selector");
+            
+            if (!pokemonData) {
+                console.error("Pokemon data is not available");
+                return;
+            }
+            
+            console.log(`Loaded ${pokemonData.length} Pokemon`);
+            
+            // Populate Pokemon lists on page load
+            populatePokemonLists();
+            
+            // Add event listeners for select elements
+            if (pokemon1List) {
+                pokemon1List.addEventListener('change', updateSelectedPokemon);
+            }
+            
+            if (pokemon2List) {
+                pokemon2List.addEventListener('change', updateSelectedPokemon);
+            }
+            
+            // Initialize filters on page load to show all Pokemon
+            applyFilters('pokemon1List');
+            applyFilters('pokemon2List');
+            
+            // Add event listeners for search inputs
+            const pokemon1Search = document.getElementById('pokemon1Search');
+            if (pokemon1Search) {
+                pokemon1Search.addEventListener('input', function() {
+                    filterPokemon(this, 'pokemon1List');
+                });
+            }
+            
+            const pokemon2Search = document.getElementById('pokemon2Search');
+            if (pokemon2Search) {
+                pokemon2Search.addEventListener('input', function() {
+                    filterPokemon(this, 'pokemon2List');
+                });
+            }
+            
+            // Form submission handling
+            if (battleForm) {
+                battleForm.addEventListener('submit', function() {
+                    loadingIndicator.style.display = 'block';
+                    predictButton.disabled = true;
+                });
             }
         });
     </script>

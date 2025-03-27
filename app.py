@@ -153,6 +153,7 @@ def login_required(f):
 def prepare_pokemon_data():
     data = []
     for index, row in pokemon_db_df.iterrows():
+        # Make sure all fields have consistent data types
         pokemon = {
             "id": int(row["#"]),
             "name": row["Name"].title(),
@@ -162,6 +163,9 @@ def prepare_pokemon_data():
             "legendary": bool(row["Legendary"]),
         }
         data.append(pokemon)
+    print(f"Prepared {len(data)} Pokemon for frontend")
+    if data:
+        print(f"Sample Pokemon: {data[0]}")
     return data
 
 
