@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battle Result - Pokemon Battle Predictor</title>
+    <title>Combat Results - PokeDex</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -28,6 +28,10 @@
             margin: 0 auto;
             padding: 20px;
             background-color: var(--light-gray);
+            background-image: url('https://i.imgur.com/HXMVJHI.png');
+            background-repeat: repeat;
+            background-size: 200px;
+            background-opacity: 0.1;
             line-height: 1.6;
             color: var(--dark-gray);
         }
@@ -37,12 +41,30 @@
             margin: 0 auto;
         }
         
+        .header-logo {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .header-logo img {
+            max-width: 150px;
+            height: auto;
+        }
+        
         h1 {
             color: var(--primary-color);
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 5px;
             font-size: 2.2rem;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .tagline {
+            color: var(--secondary-color);
+            text-align: center;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            font-weight: 500;
         }
         
         @media (max-width: 600px) {
@@ -58,6 +80,7 @@
             box-shadow: var(--box-shadow);
             margin-bottom: 20px;
             text-align: center;
+            border-top: 5px solid var(--primary-color);
         }
         
         .battle-result {
@@ -65,24 +88,43 @@
             justify-content: space-around;
             flex-wrap: wrap;
             margin: 30px 0;
+            position: relative;
+        }
+        
+        .battle-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(227, 53, 13, 0.5), transparent);
+            z-index: 1;
         }
         
         @media (max-width: 768px) {
             .battle-result {
                 flex-direction: column;
                 align-items: center;
-                gap: 30px;
+                gap: 60px;
+            }
+            
+            .battle-line {
+                transform: translate(-50%, -50%) rotate(90deg);
+                width: 60%;
             }
         }
         
         .pokemon-card {
             width: 45%;
             max-width: 300px;
-            padding: 20px;
+            padding: 25px;
             border-radius: var(--border-radius);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: transform 0.5s ease, box-shadow 0.5s ease;
             background-color: white;
+            position: relative;
+            z-index: 2;
         }
         
         @media (max-width: 768px) {
@@ -94,48 +136,118 @@
         
         .pokemon-card.winner {
             border: 3px solid var(--primary-color);
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(227, 53, 13, 0.2);
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 10px 20px rgba(227, 53, 13, 0.2);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(227, 53, 13, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(227, 53, 13, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(227, 53, 13, 0); }
         }
         
         .pokemon-card h3 {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             color: var(--secondary-color);
+            font-size: 1.5rem;
         }
         
         .winner-badge {
             background-color: var(--primary-color);
             color: white;
-            padding: 5px 15px;
+            padding: 8px 15px;
             border-radius: 20px;
             display: inline-block;
-            margin-top: 10px;
+            margin: 15px 0;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 16px;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
         .pokemon-image {
             width: 120px;
             height: 120px;
-            margin: 0 auto 15px;
+            margin: 0 auto 20px;
             background-color: #f0f0f0;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
-            color: #999;
+            font-size: 60px;
+            color: var(--secondary-color);
+            border: 3px solid #e0e0e0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pokemon-card.winner .pokemon-image {
+            border-color: var(--primary-color);
+            background-color: #fff9f9;
+        }
+        
+        .pokemon-stats {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .pokemon-stats .stat {
+            margin: 5px 0;
+        }
+        
+        .vs-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 3;
+        }
+        
+        .battle-announcement {
+            font-size: 2rem;
+            margin: 30px 0;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: var(--border-radius);
+            color: var(--primary-color);
+            font-weight: 700;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+            animation: fadeIn 1s ease-in, float 3s ease-in-out infinite;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
         }
         
         .btn {
             background-color: var(--secondary-color);
             color: white;
             border: none;
-            padding: 12px 20px;
+            padding: 15px 25px;
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 16px;
-            margin-top: 20px;
+            margin-top: 25px;
             transition: var(--transition);
             font-weight: 600;
             text-decoration: none;
@@ -145,38 +257,13 @@
         
         .btn:hover {
             background-color: #2a4078;
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(59, 91, 167, 0.2);
         }
         
         .btn:active {
-            transform: translateY(0);
-        }
-        
-        .battle-announcement {
-            font-size: 1.5rem;
-            margin: 20px 0;
-            padding: 10px;
-            animation: fadeIn 1s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .vs {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--dark-gray);
-            margin: 0 20px;
-            align-self: center;
-        }
-        
-        @media (max-width: 768px) {
-            .vs {
-                margin: 0;
-                transform: rotate(90deg);
-            }
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(59, 91, 167, 0.2);
         }
         
         .user-nav {
@@ -184,6 +271,10 @@
             justify-content: flex-end;
             align-items: center;
             margin-bottom: 20px;
+            background-color: white;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
         }
         
         .user-nav a {
@@ -203,6 +294,28 @@
             margin-right: auto;
             font-weight: 500;
         }
+        
+        .battle-details {
+            margin: 30px auto;
+            max-width: 600px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .battle-details h3 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .battle-details p {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -213,21 +326,26 @@
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
-            <span class="welcome">Welcome to Pokemon Battle Predictor</span>
+            <span class="welcome">Welcome to PokeDex</span>
             <a href="{{ url_for('index') }}">Home</a>
             <a href="{{ url_for('login') }}">Login</a>
             <a href="{{ url_for('register') }}">Register</a>
             {% endif %}
         </div>
         
-        <h1>Battle Result</h1>
+        <div class="header-logo">
+            <img src="https://i.imgur.com/jNPi0Dc.png" alt="PokeDex Logo">
+        </div>
+        
+        <h1>Combat Analysis</h1>
+        <p class="tagline">ML Powered Pokemon Combat Gaming Interface</p>
         
         <div class="result-container">
             <div class="battle-announcement">
                 {% if result.winner == "Pokemon 1" %}
-                    {{ result.pokemon1 }} wins the battle!
+                    {{ result.pokemon1 }} Emerges Victorious!
                 {% else %}
-                    {{ result.pokemon2 }} wins the battle!
+                    {{ result.pokemon2 }} Emerges Victorious!
                 {% endif %}
             </div>
             
@@ -235,23 +353,42 @@
                 <div class="pokemon-card {% if result.winner == 'Pokemon 1' %}winner{% endif %}">
                     <div class="pokemon-image">{{ result.pokemon1[0] }}</div>
                     <h3>{{ result.pokemon1 }}</h3>
+                    <div class="pokemon-stats">
+                        <div class="stat">Contender #1</div>
+                        {% if result.winner == "Pokemon 1" %}
+                        <div class="stat" style="color: var(--primary-color); font-weight: bold;">Victory predicted!</div>
+                        {% endif %}
+                    </div>
                     {% if result.winner == "Pokemon 1" %}
                     <div class="winner-badge">WINNER</div>
                     {% endif %}
                 </div>
                 
-                <div class="vs">VS</div>
+                <div class="battle-line"></div>
+                <div class="vs-badge">VS</div>
                 
                 <div class="pokemon-card {% if result.winner == 'Pokemon 2' %}winner{% endif %}">
                     <div class="pokemon-image">{{ result.pokemon2[0] }}</div>
                     <h3>{{ result.pokemon2 }}</h3>
+                    <div class="pokemon-stats">
+                        <div class="stat">Contender #2</div>
+                        {% if result.winner == "Pokemon 2" %}
+                        <div class="stat" style="color: var(--primary-color); font-weight: bold;">Victory predicted!</div>
+                        {% endif %}
+                    </div>
                     {% if result.winner == "Pokemon 2" %}
                     <div class="winner-badge">WINNER</div>
                     {% endif %}
                 </div>
             </div>
             
-            <a href="{{ url_for('index') }}" class="btn">Predict Another Battle</a>
+            <div class="battle-details">
+                <h3>Analysis Details</h3>
+                <p>The PokeDex ML model analyzed the battle between <strong>{{ result.pokemon1 }}</strong> and <strong>{{ result.pokemon2 }}</strong>, taking into account various factors such as type matchups, base stats, abilities, and historical battle data.</p>
+                <p>Based on this comprehensive analysis, the model predicts that <strong>{% if result.winner == "Pokemon 1" %}{{ result.pokemon1 }}{% else %}{{ result.pokemon2 }}{% endif %}</strong> would emerge victorious in this matchup.</p>
+            </div>
+            
+            <a href="{{ url_for('index') }}" class="btn">Analyze Another Battle</a>
         </div>
     </div>
 </body>

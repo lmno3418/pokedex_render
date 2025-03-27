@@ -18,6 +18,7 @@ import psycopg2
 from psycopg2 import sql
 import bcrypt
 from functools import wraps
+import logging
 
 # Load environment variables if .env file exists
 load_dotenv()
@@ -291,120 +292,76 @@ def get_features(name, df, type1_enc, type2_enc):
 # Authentication routes
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    """Handle user registration"""
+    """
+    Handle user registration.
+    """
     if request.method == "POST":
         user_id = request.form.get("user_id")
-        email = request.form.get("email")
         password = request.form.get("password")
 
-        # Simple validation
-        if not user_id or not email or not password:
-            flash("All fields are required", "error")
-            return render_template("register.html")
+        try:
+            db_connection = get_db_connection()
+            cursor = db_connection.cursor()
 
-        # Check if user already exists
-        conn = get_db_connection()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    # Check if user_id exists
-                    cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
-                    if cur.fetchone():
-                        flash("User ID already taken", "error")
-                        conn.close()
-                        return render_template("register.html")
+            # Check if user already exists
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            if cursor.fetchone():
+                flash("User ID already exists", "error")
+                return render_template(
+                    "register.html", app_title="PokeDex: ML Powered Combat Interface"
+                )
 
-                    # Check if email exists
-                    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
-                    if cur.fetchone():
-                        flash("Email already registered", "error")
-                        conn.close()
-                        return render_template("register.html")
+            # Create new user
+            cursor.execute(
+                "INSERT INTO users (user_id, password_hash) VALUES (?, ?)",
+                (user_id, bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())),
+            )
+            db_connection.commit()
 
-                    # Hash the password
-                    password_hash = bcrypt.hashpw(
-                        password.encode("utf-8"), bcrypt.gensalt()
-                    )
+            flash("Registration successful! Please log in.", "success")
+            return redirect(url_for("login"))
+        except Exception as e:
+            logging.error(f"Error in register route: {e}")
+            flash("An error occurred during registration", "error")
 
-                    # Check if password column exists to determine insert query
-                    cur.execute("""
-                        SELECT EXISTS (
-                            SELECT FROM information_schema.columns 
-                            WHERE table_name = 'users' AND column_name = 'password'
-                        );
-                    """)
-                    password_column_exists = cur.fetchone()[0]
-
-                    if password_column_exists:
-                        # Insert with both password and password_hash
-                        cur.execute(
-                            "INSERT INTO users (user_id, email, password, password_hash) VALUES (%s, %s, %s, %s)",
-                            (user_id, email, password, password_hash.decode("utf-8")),
-                        )
-                    else:
-                        # Insert with just password_hash
-                        cur.execute(
-                            "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
-                            (user_id, email, password_hash.decode("utf-8")),
-                        )
-
-                    conn.commit()
-                    flash("Registration successful! Please log in", "success")
-                    return redirect(url_for("login"))
-            except Exception as e:
-                flash(f"Registration error: {str(e)}", "error")
-            finally:
-                conn.close()
-        else:
-            flash("Database connection error", "error")
-
-        return render_template("register.html")
-
-    return render_template("register.html")
+    return render_template(
+        "register.html", app_title="PokeDex: ML Powered Combat Interface"
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Handle user login"""
+    """
+    Handle user login.
+    """
     if request.method == "POST":
         user_id = request.form.get("user_id")
         password = request.form.get("password")
 
-        # Simple validation
-        if not user_id or not password:
-            flash("User ID and password are required", "error")
-            return render_template("login.html")
+        try:
+            db_connection = get_db_connection()
+            cursor = db_connection.cursor()
 
-        # Check user credentials
-        conn = get_db_connection()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT user_id, password_hash FROM users WHERE user_id = %s",
-                        (user_id,),
-                    )
-                    user = cur.fetchone()
+            # Get user from database
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            user = cursor.fetchone()
 
-                    if user and bcrypt.checkpw(
-                        password.encode("utf-8"), user[1].encode("utf-8")
-                    ):
-                        # Set session
-                        session["user_id"] = user[0]
-                        flash("Login successful!", "success")
-                        return redirect(url_for("index"))
-                    else:
-                        flash("Invalid credentials", "error")
-            except Exception as e:
-                flash(f"Login error: {str(e)}", "error")
-            finally:
-                conn.close()
-        else:
-            flash("Database connection error", "error")
+            # Verify user exists and password matches
+            if user and bcrypt.checkpw(
+                password.encode("utf-8"), user[2].encode("utf-8")
+            ):
+                session["user_id"] = user_id
+                flash("Login successful!", "success")
+                return redirect(url_for("index"))
+            else:
+                flash("Invalid username or password", "error")
+        except Exception as e:
+            logging.error(f"Error in login route: {e}")
+            flash("An error occurred during login", "error")
 
-        return render_template("login.html")
-
-    return render_template("login.html")
+    return render_template(
+        "login.html", app_title="PokeDex: ML Powered Combat Interface"
+    )
 
 
 @app.route("/logout")
@@ -418,91 +375,77 @@ def logout():
 @app.route("/")
 def index():
     """
-    Render the main page with Pokemon selection interface
+    Render the home page with Pokemon selection form.
     """
-    # Check if user is logged in
-    is_authenticated = "user_id" in session
-    user_id = session.get("user_id", None)
+    try:
+        db_connection = get_db_connection()
+        cursor = db_connection.cursor()
 
-    # Pass the pokemon data as JSON for the frontend search
-    pokemon_data_json = json.dumps(pokemon_frontend_data)
+        # Get the list of all Pokemon names
+        cursor.execute("SELECT name FROM pokemon ORDER BY name")
+        pokemon_list = [row[0] for row in cursor.fetchall()]
 
-    # Debug logging
-    print(f"Pokemon data count: {len(pokemon_frontend_data)}")
-    print(
-        f"First Pokemon sample: {pokemon_frontend_data[0] if pokemon_frontend_data else 'No Pokemon data'}"
-    )
+        # Check if user is logged in
+        user_id = session.get("user_id", None)
+        is_authenticated = user_id is not None
 
-    return render_template(
-        "index.html",
-        pokemon_data=pokemon_data_json,
-        is_authenticated=is_authenticated,
-        user_id=user_id,
-    )
+        logging.info(f"Rendering index page. User authenticated: {is_authenticated}")
+
+        return render_template(
+            "index.html",
+            pokemon_list=pokemon_list,
+            is_authenticated=is_authenticated,
+            user_id=user_id,
+            app_title="PokeDex: ML Powered Combat Interface",
+        )
+    except Exception as e:
+        logging.error(f"Error in index route: {e}")
+        flash(f"An unexpected error occurred: {str(e)}", "error")
+        return render_template(
+            "index.html",
+            pokemon_list=[],
+            is_authenticated=False,
+            app_title="PokeDex: ML Powered Combat Interface",
+        )
 
 
 @app.route("/predict", methods=["POST"])
 @login_required
 def predict():
     """
-    Handle prediction request when form is submitted
+    Predict the winner of a Pokemon battle.
     """
-    p1_name = request.form.get("pokemon1").lower()
-    p2_name = request.form.get("pokemon2").lower()
+    if "user_id" not in session:
+        flash("Please log in to use the battle predictor", "error")
+        return redirect(url_for("login"))
 
-    # Get Pokemon features from pokemon.csv for ML prediction
-    p1_data = get_features(
-        p1_name, pokemon_df, TYPE_ENCODINGS["P1_Type1"], TYPE_ENCODINGS["P1_Type2"]
-    )
-    p2_data = get_features(
-        p2_name, pokemon_df, TYPE_ENCODINGS["P2_Type1"], TYPE_ENCODINGS["P2_Type2"]
-    )
-
-    if p1_data is None or p2_data is None:
-        return jsonify({"error": "One or both Pokemon not found"})
-
-    # Create input DataFrame
-    input_data = {
-        "P1_Type1": p1_data["Type1"],
-        "P1_Type2": p1_data["Type2"],
-        "P1_HP": p1_data["HP"],
-        "P1_Attack": p1_data["Attack"],
-        "P1_Defense": p1_data["Defense"],
-        "P1_Sp.Atk": p1_data["Sp.Atk"],
-        "P1_Sp.Def": p1_data["Sp.Def"],
-        "P1_Speed": p1_data["Speed"],
-        "P1_Generation": p1_data["Generation"],
-        "P1_Legendary": p1_data["Legendary"],
-        "P2_Type1": p2_data["Type1"],
-        "P2_Type2": p2_data["Type2"],
-        "P2_HP": p2_data["HP"],
-        "P2_Attack": p2_data["Attack"],
-        "P2_Defense": p2_data["Defense"],
-        "P2_Sp.Atk": p2_data["Sp.Atk"],
-        "P2_Sp.Def": p2_data["Sp.Def"],
-        "P2_Speed": p2_data["Speed"],
-        "P2_Generation": p2_data["Generation"],
-        "P2_Legendary": p2_data["Legendary"],
-    }
-
-    input_df = pd.DataFrame([input_data])
-
-    # Make prediction
     try:
-        prediction = loaded_model.predict(input_df)
-        result = {
-            "winner": "Pokemon 1" if prediction[0] == 1 else "Pokemon 2",
-            "pokemon1": p1_name.title(),
-            "pokemon2": p2_name.title(),
-        }
+        # Get Pokemon names from form
+        pokemon1 = request.form["pokemon1"]
+        pokemon2 = request.form["pokemon2"]
+
+        logging.info(f"Prediction request for {pokemon1} vs {pokemon2}")
+
+        # Predict winner
+        winner = predict_winner(pokemon1, pokemon2)
+
+        # Create result object
+        result = {"pokemon1": pokemon1, "pokemon2": pokemon2, "winner": winner}
+
+        # Optionally log prediction for later analysis
+        log_prediction(pokemon1, pokemon2, winner, session.get("user_id"))
+
         return render_template(
             "result.html",
             result=result,
             is_authenticated=True,
             user_id=session.get("user_id"),
+            app_title="PokeDex: ML Powered Combat Interface",
         )
     except Exception as e:
-        return jsonify({"error": f"Prediction error: {str(e)}"})
+        logging.error(f"Error in predict route: {e}")
+        flash(f"An error occurred during prediction: {str(e)}", "error")
+        return redirect(url_for("index"))
 
 
 # Health check endpoint for Render
