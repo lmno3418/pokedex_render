@@ -89,6 +89,15 @@ def init_db():
                     conn.commit()
                     print("Database table created successfully!")
                 else:
+                    # Check if password column exists (this is likely causing the issue)
+                    cur.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns 
+                            WHERE table_name = 'users' AND column_name = 'password'
+                        );
+                    """)
+                    password_column_exists = cur.fetchone()[0]
+
                     # Check if password_hash column exists
                     cur.execute("""
                         SELECT EXISTS (
@@ -96,10 +105,18 @@ def init_db():
                             WHERE table_name = 'users' AND column_name = 'password_hash'
                         );
                     """)
-                    column_exists = cur.fetchone()[0]
+                    password_hash_column_exists = cur.fetchone()[0]
 
-                    if not column_exists:
-                        # Add the missing column
+                    if password_column_exists and not password_hash_column_exists:
+                        # Rename password column to password_hash
+                        cur.execute("""
+                            ALTER TABLE users 
+                            RENAME COLUMN password TO password_hash;
+                        """)
+                        conn.commit()
+                        print("Renamed password column to password_hash!")
+                    elif not password_hash_column_exists:
+                        # Add password_hash column if it doesn't exist
                         cur.execute("""
                             ALTER TABLE users 
                             ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT '';
@@ -305,11 +322,28 @@ def register():
                         password.encode("utf-8"), bcrypt.gensalt()
                     )
 
-                    # Insert new user
-                    cur.execute(
-                        "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
-                        (user_id, email, password_hash.decode("utf-8")),
-                    )
+                    # Check if password column exists to determine insert query
+                    cur.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns 
+                            WHERE table_name = 'users' AND column_name = 'password'
+                        );
+                    """)
+                    password_column_exists = cur.fetchone()[0]
+
+                    if password_column_exists:
+                        # Insert with both password and password_hash
+                        cur.execute(
+                            "INSERT INTO users (user_id, email, password, password_hash) VALUES (%s, %s, %s, %s)",
+                            (user_id, email, password, password_hash.decode("utf-8")),
+                        )
+                    else:
+                        # Insert with just password_hash
+                        cur.execute(
+                            "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
+                            (user_id, email, password_hash.decode("utf-8")),
+                        )
+
                     conn.commit()
                     flash("Registration successful! Please log in", "success")
                     return redirect(url_for("login"))
