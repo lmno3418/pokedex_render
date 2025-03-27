@@ -7,11 +7,10 @@ This is a Flask web application that predicts the winner in a battle between two
 - Advanced Pokemon search functionality:
   - Search by Pokemon ID (e.g., "25" for Pikachu)
   - Search by name (case insensitive)
-  - Filter by Pokemon type
+  - Filter by Pokemon type 1 and type 2 separately
   - Filter by generation
 - Uses a pre-trained model to predict battle outcomes
 - Simple and intuitive web interface
-- User authentication system
 
 ## How It Works
 
@@ -21,10 +20,10 @@ This is a Flask web application that predicts the winner in a battle between two
 
 ## Prerequisites
 
-- Python 3.7 or higher
+- Python 3.10 or higher
 - Required Python packages (see requirements.txt)
 
-## Local Development
+## Installation
 
 1. Clone or download this repository
 2. Navigate to the project directory
@@ -34,48 +33,44 @@ This is a Flask web application that predicts the winner in a battle between two
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file with the following variables:
+## Configuration
+
+The application uses environment variables for configuration. You can set these in a `.env` file:
+
 ```
-DATABASE_URL=sqlite:///users.db
-SECRET_KEY=your-secret-key-here
+# Flask application configuration
+FLASK_APP=app.py
 FLASK_DEBUG=True
+
+# Server configuration
+PORT=5000
+
+# Application settings
+MODEL_PATH=battle_1v1_model.joblib
+POKEMON_CSV=pokemon.csv
+POKEMON_DB_CSV=pokemon_db.csv
 ```
 
-5. Run the Flask application:
+## Running the Application
+
+1. Make sure you have the following files in the project directory:
+   - pokemon.csv
+   - pokemon_db.csv
+   - battle_1v1_model.joblib
+
+2. Run the Flask application:
 
 ```
 python app.py
 ```
 
-6. Open your web browser and go to http://127.0.0.1:5000/
+Or using Flask CLI:
 
-## Deploying to Render
+```
+flask run
+```
 
-### Prerequisites
-1. Create a [Render](https://render.com) account
-2. Create a PostgreSQL database on Render
-
-### Steps to Deploy
-
-1. Create a new Web Service on Render
-2. Connect your GitHub repository
-3. Configure the following settings:
-   - **Name**: Choose a name for your service
-   - **Environment**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app`
-
-4. Add the following environment variables:
-   - `DATABASE_URL`: Use the Internal Database URL from your Render PostgreSQL database
-   - `SECRET_KEY`: A secure random string for session encryption
-   - `FLASK_DEBUG`: Set to "False" for production
-
-5. Deploy your application
-
-### Important Notes for Render Deployment
-- The app will automatically detect the PostgreSQL database URL
-- The first user to register will be able to access the app
-- Large files like `battle_1v1_model.joblib` might require extra build time
+3. Open your web browser and go to http://127.0.0.1:5000/
 
 ## How to Use
 
@@ -83,7 +78,8 @@ python app.py
    - Type a Pokemon ID (e.g., "25")
    - Type a Pokemon name (e.g., "pikachu")
    - Type a Pokemon type (e.g., "fire")
-   - Select a type from the dropdown
+   - Select a primary type from the "Type 1" dropdown
+   - Select a secondary type from the "Type 2" dropdown
    - Select a generation from the dropdown
    - Use combinations of the above
    
@@ -93,4 +89,14 @@ python app.py
 
 4. View the battle prediction result
 
-5. Click "Search for Another Battle" to make another prediction 
+5. Click "Search for Another Battle" to make another prediction
+
+## Dependencies
+
+The application requires specific versions of libraries which are listed in the requirements.txt file. Key dependencies include:
+
+- Flask 3.1.0
+- pandas 2.2.3
+- scikit-learn 1.6.1
+- joblib 1.4.2
+- numpy 2.2.4 

@@ -1,90 +1,36 @@
 import joblib
 import pandas as pd
 import json
-import os
-from flask import (
-    Flask,
-    render_template,
-    request,
-    jsonify,
-    redirect,
-    url_for,
-    flash,
-    session,
-)
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import (
-    LoginManager,
-    UserMixin,
-    login_user,
-    login_required,
-    logout_user,
-    current_user,
-)
-import re
+import numpy as np
+from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
+import os
 
-# Load environment variables from .env file (if it exists)
+# Load environment variables if .env file exists
 load_dotenv()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get(
-    "SECRET_KEY", "pokemon-battle-predictor-secret-key"
-)
 
-# Configure the database based on environment variable
-database_url = os.environ.get("DATABASE_URL")
-# Handle Render PostgreSQL URL format (postgres:// -> postgresql://)
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-# Set database URI from environment or use SQLite as fallback
-app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///users.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Initialize extensions
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = "login"
-
-
-# User model
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-
-# Create database tables
-with app.app_context():
-    db.create_all()
-
-
-# User loader
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
+# Get file paths from environment variables
+MODEL_PATH = os.environ.get("MODEL_PATH", "battle_1v1_model.joblib")
+POKEMON_CSV = os.environ.get("POKEMON_CSV", "pokemon.csv")
+POKEMON_DB_CSV = os.environ.get("POKEMON_DB_CSV", "pokemon_db.csv")
 
 # Load the model
-loaded_model = joblib.load("battle_1v1_model.joblib")
-print("Loaded model successfully!")
+try:
+    loaded_model = joblib.load(MODEL_PATH)
+    print(f"Loaded model successfully from {MODEL_PATH}!")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    loaded_model = None
 
 # Load Pokémon data for prediction
-pokemon_df = pd.read_csv("pokemon.csv")
+pokemon_df = pd.read_csv(POKEMON_CSV)
 pokemon_df["Type 2"] = pokemon_df["Type 2"].fillna("Normal")
 pokemon_df["Name"] = pokemon_df["Name"].str.lower()
 
 # Load Pokémon data for selection
-pokemon_db_df = pd.read_csv("pokemon_db.csv")
+pokemon_db_df = pd.read_csv(POKEMON_DB_CSV)
 pokemon_db_df["Name"] = pokemon_db_df["Name"].str.lower()
 
 
@@ -93,11 +39,11 @@ def prepare_pokemon_data():
     data = []
     for index, row in pokemon_db_df.iterrows():
         pokemon = {
-            "id": row["#"],
+            "id": int(row["#"]),
             "name": row["Name"].title(),
             "type1": row["Type 1"],
             "type2": row["Type 2"] if pd.notna(row["Type 2"]) else None,
-            "generation": row["Generation"],
+            "generation": int(row["Generation"]),
             "legendary": bool(row["Legendary"]),
         }
         data.append(pokemon)
@@ -192,6 +138,9 @@ TYPE_ENCODINGS = {
 
 
 def get_features(name, df, type1_enc, type2_enc):
+    """
+    Extract features for a pokemon by name
+    """
     # Convert input name to lowercase for case-insensitive matching
     name = name.lower()
     if name not in df["Name"].values:
@@ -220,109 +169,21 @@ def get_features(name, df, type1_enc, type2_enc):
     }
 
 
-# Login route
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for("index"))
-
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        remember = "remember" in request.form
-
-        user = User.query.filter_by(username=username).first()
-
-        if not user or not user.check_password(password):
-            flash("Invalid username or password", "danger")
-            return redirect(url_for("login"))
-
-        login_user(user, remember=remember)
-        next_page = request.args.get("next")
-
-        if not next_page or not next_page.startswith("/"):
-            next_page = url_for("index")
-
-        return redirect(next_page)
-
-    return render_template("login.html")
-
-
-# Register route
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for("index"))
-
-    if request.method == "POST":
-        email = request.form.get("email")
-        username = request.form.get("username")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
-
-        # Validate email
-        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(email_pattern, email):
-            flash("Invalid email address", "danger")
-            return redirect(url_for("register"))
-
-        # Validate username
-        if not username or len(username) < 3:
-            flash("Username must be at least 3 characters long", "danger")
-            return redirect(url_for("register"))
-
-        # Validate password
-        if not password or len(password) < 6:
-            flash("Password must be at least 6 characters long", "danger")
-            return redirect(url_for("register"))
-
-        if password != confirm_password:
-            flash("Passwords do not match", "danger")
-            return redirect(url_for("register"))
-
-        # Check if email or username already exists
-        email_exists = User.query.filter_by(email=email).first()
-        username_exists = User.query.filter_by(username=username).first()
-
-        if email_exists:
-            flash("Email already registered", "danger")
-            return redirect(url_for("register"))
-
-        if username_exists:
-            flash("Username already taken", "danger")
-            return redirect(url_for("register"))
-
-        # Create new user
-        user = User(email=email, username=username)
-        user.set_password(password)
-
-        db.session.add(user)
-        db.session.commit()
-
-        flash("Registration successful! You can now log in.", "success")
-        return redirect(url_for("login"))
-
-    return render_template("register.html")
-
-
-# Logout route
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for("index"))
-
-
 @app.route("/")
 def index():
+    """
+    Render the main page with Pokemon selection interface
+    """
     # Pass the pokemon data as JSON for the frontend search
     pokemon_data_json = json.dumps(pokemon_frontend_data)
     return render_template("index.html", pokemon_data=pokemon_data_json)
 
 
 @app.route("/predict", methods=["POST"])
-@login_required
 def predict():
+    """
+    Handle prediction request when form is submitted
+    """
     p1_name = request.form.get("pokemon1").lower()
     p2_name = request.form.get("pokemon2").lower()
 
@@ -364,16 +225,26 @@ def predict():
     input_df = pd.DataFrame([input_data])
 
     # Make prediction
-    prediction = loaded_model.predict(input_df)
-    result = {
-        "winner": "Pokemon 1" if prediction[0] == 1 else "Pokemon 2",
-        "pokemon1": p1_name.title(),
-        "pokemon2": p2_name.title(),
-    }
-
-    return render_template("result.html", result=result)
+    try:
+        prediction = loaded_model.predict(input_df)
+        result = {
+            "winner": "Pokemon 1" if prediction[0] == 1 else "Pokemon 2",
+            "pokemon1": p1_name.title(),
+            "pokemon2": p2_name.title(),
+        }
+        return render_template("result.html", result=result)
+    except Exception as e:
+        return jsonify({"error": f"Prediction error: {str(e)}"})
 
 
 if __name__ == "__main__":
-    debug = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-    app.run(debug=debug)
+    # Get port from environment or use 5000 as default
+    port = int(os.environ.get("PORT", 5000))
+
+    # Run app with debug mode from environment or False as default
+    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+
+    print(
+        f"Starting server on port {port} with debug mode {'enabled' if debug_mode else 'disabled'}"
+    )
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)

@@ -117,229 +117,166 @@
             color: #999;
             text-align: center;
         }
-        .auth-nav {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 20px;
-        }
-        .auth-nav a {
-            color: #3b5ba7;
-            text-decoration: none;
-            margin-left: 15px;
-        }
-        .auth-nav a:hover {
-            text-decoration: underline;
-        }
-        .user-info {
-            color: #333;
-            font-weight: bold;
-        }
-        .flash-messages {
-            margin-bottom: 20px;
-        }
-        .flash-message {
-            padding: 10px 15px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .flash-message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .flash-message.danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
     </style>
 </head>
 <body>
-    <div class="auth-nav">
-        {% if current_user.is_authenticated %}
-            <span class="user-info">Welcome, {{ current_user.username }}</span>
-            <a href="{{ url_for('logout') }}">Logout</a>
-        {% else %}
-            <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('register') }}">Register</a>
-        {% endif %}
-    </div>
-    
     <h1>Pokemon Battle Predictor</h1>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash-message {{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-    
     <div class="battle-form">
-        {% if current_user.is_authenticated %}
-            <form action="/predict" method="post" id="battle-form">
-                <div class="pokemon-container">
-                    <div class="pokemon-select">
-                        <div class="form-group">
-                            <label for="pokemon1">First Pokemon:</label>
-                            <input type="text" id="pokemon1-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
-                            <div class="filter-options">
-                                <div class="filter-group">
-                                    <span class="filter-label">Type 1:</span>
-                                    <select id="pokemon1-type1">
-                                        <option value="">Any Type 1</option>
-                                        <option value="Normal">Normal</option>
-                                        <option value="Fire">Fire</option>
-                                        <option value="Water">Water</option>
-                                        <option value="Grass">Grass</option>
-                                        <option value="Flying">Flying</option>
-                                        <option value="Fighting">Fighting</option>
-                                        <option value="Poison">Poison</option>
-                                        <option value="Electric">Electric</option>
-                                        <option value="Ground">Ground</option>
-                                        <option value="Rock">Rock</option>
-                                        <option value="Psychic">Psychic</option>
-                                        <option value="Ice">Ice</option>
-                                        <option value="Bug">Bug</option>
-                                        <option value="Ghost">Ghost</option>
-                                        <option value="Steel">Steel</option>
-                                        <option value="Dragon">Dragon</option>
-                                        <option value="Dark">Dark</option>
-                                        <option value="Fairy">Fairy</option>
-                                    </select>
-                                </div>
-                                <div class="filter-group">
-                                    <span class="filter-label">Type 2:</span>
-                                    <select id="pokemon1-type2">
-                                        <option value="">Any Type 2</option>
-                                        <option value="Normal">Normal</option>
-                                        <option value="Fire">Fire</option>
-                                        <option value="Water">Water</option>
-                                        <option value="Grass">Grass</option>
-                                        <option value="Flying">Flying</option>
-                                        <option value="Fighting">Fighting</option>
-                                        <option value="Poison">Poison</option>
-                                        <option value="Electric">Electric</option>
-                                        <option value="Ground">Ground</option>
-                                        <option value="Rock">Rock</option>
-                                        <option value="Psychic">Psychic</option>
-                                        <option value="Ice">Ice</option>
-                                        <option value="Bug">Bug</option>
-                                        <option value="Ghost">Ghost</option>
-                                        <option value="Steel">Steel</option>
-                                        <option value="Dragon">Dragon</option>
-                                        <option value="Dark">Dark</option>
-                                        <option value="Fairy">Fairy</option>
-                                    </select>
-                                </div>
-                                <div class="filter-group" style="width: 100%;">
-                                    <span class="filter-label">Generation:</span>
-                                    <select id="pokemon1-generation">
-                                        <option value="">Any Generation</option>
-                                        <option value="1">Gen 1</option>
-                                        <option value="2">Gen 2</option>
-                                        <option value="3">Gen 3</option>
-                                        <option value="4">Gen 4</option>
-                                        <option value="5">Gen 5</option>
-                                        <option value="6">Gen 6</option>
-                                        <option value="7">Gen 7</option>
-                                    </select>
-                                </div>
+        <form action="/predict" method="post" id="battle-form">
+            <div class="pokemon-container">
+                <div class="pokemon-select">
+                    <div class="form-group">
+                        <label for="pokemon1">First Pokemon:</label>
+                        <input type="text" id="pokemon1-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
+                        <div class="filter-options">
+                            <div class="filter-group">
+                                <span class="filter-label">Type 1:</span>
+                                <select id="pokemon1-type1">
+                                    <option value="">Any Type 1</option>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Fire">Fire</option>
+                                    <option value="Water">Water</option>
+                                    <option value="Grass">Grass</option>
+                                    <option value="Flying">Flying</option>
+                                    <option value="Fighting">Fighting</option>
+                                    <option value="Poison">Poison</option>
+                                    <option value="Electric">Electric</option>
+                                    <option value="Ground">Ground</option>
+                                    <option value="Rock">Rock</option>
+                                    <option value="Psychic">Psychic</option>
+                                    <option value="Ice">Ice</option>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Ghost">Ghost</option>
+                                    <option value="Steel">Steel</option>
+                                    <option value="Dragon">Dragon</option>
+                                    <option value="Dark">Dark</option>
+                                    <option value="Fairy">Fairy</option>
+                                </select>
                             </div>
-                            <div id="pokemon1-list" class="pokemon-list"></div>
-                            <input type="hidden" name="pokemon1" id="pokemon1" required>
-                            <div id="pokemon1-selection" style="margin-top: 10px; font-weight: bold;"></div>
-                        </div>
-                    </div>
-                    <div class="pokemon-select">
-                        <div class="form-group">
-                            <label for="pokemon2">Second Pokemon:</label>
-                            <input type="text" id="pokemon2-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
-                            <div class="filter-options">
-                                <div class="filter-group">
-                                    <span class="filter-label">Type 1:</span>
-                                    <select id="pokemon2-type1">
-                                        <option value="">Any Type 1</option>
-                                        <option value="Normal">Normal</option>
-                                        <option value="Fire">Fire</option>
-                                        <option value="Water">Water</option>
-                                        <option value="Grass">Grass</option>
-                                        <option value="Flying">Flying</option>
-                                        <option value="Fighting">Fighting</option>
-                                        <option value="Poison">Poison</option>
-                                        <option value="Electric">Electric</option>
-                                        <option value="Ground">Ground</option>
-                                        <option value="Rock">Rock</option>
-                                        <option value="Psychic">Psychic</option>
-                                        <option value="Ice">Ice</option>
-                                        <option value="Bug">Bug</option>
-                                        <option value="Ghost">Ghost</option>
-                                        <option value="Steel">Steel</option>
-                                        <option value="Dragon">Dragon</option>
-                                        <option value="Dark">Dark</option>
-                                        <option value="Fairy">Fairy</option>
-                                    </select>
-                                </div>
-                                <div class="filter-group">
-                                    <span class="filter-label">Type 2:</span>
-                                    <select id="pokemon2-type2">
-                                        <option value="">Any Type 2</option>
-                                        <option value="Normal">Normal</option>
-                                        <option value="Fire">Fire</option>
-                                        <option value="Water">Water</option>
-                                        <option value="Grass">Grass</option>
-                                        <option value="Flying">Flying</option>
-                                        <option value="Fighting">Fighting</option>
-                                        <option value="Poison">Poison</option>
-                                        <option value="Electric">Electric</option>
-                                        <option value="Ground">Ground</option>
-                                        <option value="Rock">Rock</option>
-                                        <option value="Psychic">Psychic</option>
-                                        <option value="Ice">Ice</option>
-                                        <option value="Bug">Bug</option>
-                                        <option value="Ghost">Ghost</option>
-                                        <option value="Steel">Steel</option>
-                                        <option value="Dragon">Dragon</option>
-                                        <option value="Dark">Dark</option>
-                                        <option value="Fairy">Fairy</option>
-                                    </select>
-                                </div>
-                                <div class="filter-group" style="width: 100%;">
-                                    <span class="filter-label">Generation:</span>
-                                    <select id="pokemon2-generation">
-                                        <option value="">Any Generation</option>
-                                        <option value="1">Gen 1</option>
-                                        <option value="2">Gen 2</option>
-                                        <option value="3">Gen 3</option>
-                                        <option value="4">Gen 4</option>
-                                        <option value="5">Gen 5</option>
-                                        <option value="6">Gen 6</option>
-                                        <option value="7">Gen 7</option>
-                                    </select>
-                                </div>
+                            <div class="filter-group">
+                                <span class="filter-label">Type 2:</span>
+                                <select id="pokemon1-type2">
+                                    <option value="">Any Type 2</option>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Fire">Fire</option>
+                                    <option value="Water">Water</option>
+                                    <option value="Grass">Grass</option>
+                                    <option value="Flying">Flying</option>
+                                    <option value="Fighting">Fighting</option>
+                                    <option value="Poison">Poison</option>
+                                    <option value="Electric">Electric</option>
+                                    <option value="Ground">Ground</option>
+                                    <option value="Rock">Rock</option>
+                                    <option value="Psychic">Psychic</option>
+                                    <option value="Ice">Ice</option>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Ghost">Ghost</option>
+                                    <option value="Steel">Steel</option>
+                                    <option value="Dragon">Dragon</option>
+                                    <option value="Dark">Dark</option>
+                                    <option value="Fairy">Fairy</option>
+                                </select>
                             </div>
-                            <div id="pokemon2-list" class="pokemon-list"></div>
-                            <input type="hidden" name="pokemon2" id="pokemon2" required>
-                            <div id="pokemon2-selection" style="margin-top: 10px; font-weight: bold;"></div>
+                            <div class="filter-group" style="width: 100%;">
+                                <span class="filter-label">Generation:</span>
+                                <select id="pokemon1-generation">
+                                    <option value="">Any Generation</option>
+                                    <option value="1">Gen 1</option>
+                                    <option value="2">Gen 2</option>
+                                    <option value="3">Gen 3</option>
+                                    <option value="4">Gen 4</option>
+                                    <option value="5">Gen 5</option>
+                                    <option value="6">Gen 6</option>
+                                    <option value="7">Gen 7</option>
+                                </select>
+                            </div>
                         </div>
+                        <div id="pokemon1-list" class="pokemon-list"></div>
+                        <input type="hidden" name="pokemon1" id="pokemon1" required>
+                        <div id="pokemon1-selection" style="margin-top: 10px; font-weight: bold;"></div>
                     </div>
                 </div>
-                <button type="submit" id="predict-btn">Predict Battle Winner</button>
-                <div class="loading" id="loading-message">Predicting battle outcome... Please wait.</div>
-            </form>
-        {% else %}
-            <div style="text-align: center; padding: 30px;">
-                <p>Please <a href="{{ url_for('login') }}">login</a> or <a href="{{ url_for('register') }}">register</a> to use the Pokemon Battle Predictor.</p>
+                <div class="pokemon-select">
+                    <div class="form-group">
+                        <label for="pokemon2">Second Pokemon:</label>
+                        <input type="text" id="pokemon2-search" placeholder="Search by ID, name, type or generation..." autocomplete="off">
+                        <div class="filter-options">
+                            <div class="filter-group">
+                                <span class="filter-label">Type 1:</span>
+                                <select id="pokemon2-type1">
+                                    <option value="">Any Type 1</option>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Fire">Fire</option>
+                                    <option value="Water">Water</option>
+                                    <option value="Grass">Grass</option>
+                                    <option value="Flying">Flying</option>
+                                    <option value="Fighting">Fighting</option>
+                                    <option value="Poison">Poison</option>
+                                    <option value="Electric">Electric</option>
+                                    <option value="Ground">Ground</option>
+                                    <option value="Rock">Rock</option>
+                                    <option value="Psychic">Psychic</option>
+                                    <option value="Ice">Ice</option>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Ghost">Ghost</option>
+                                    <option value="Steel">Steel</option>
+                                    <option value="Dragon">Dragon</option>
+                                    <option value="Dark">Dark</option>
+                                    <option value="Fairy">Fairy</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <span class="filter-label">Type 2:</span>
+                                <select id="pokemon2-type2">
+                                    <option value="">Any Type 2</option>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Fire">Fire</option>
+                                    <option value="Water">Water</option>
+                                    <option value="Grass">Grass</option>
+                                    <option value="Flying">Flying</option>
+                                    <option value="Fighting">Fighting</option>
+                                    <option value="Poison">Poison</option>
+                                    <option value="Electric">Electric</option>
+                                    <option value="Ground">Ground</option>
+                                    <option value="Rock">Rock</option>
+                                    <option value="Psychic">Psychic</option>
+                                    <option value="Ice">Ice</option>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Ghost">Ghost</option>
+                                    <option value="Steel">Steel</option>
+                                    <option value="Dragon">Dragon</option>
+                                    <option value="Dark">Dark</option>
+                                    <option value="Fairy">Fairy</option>
+                                </select>
+                            </div>
+                            <div class="filter-group" style="width: 100%;">
+                                <span class="filter-label">Generation:</span>
+                                <select id="pokemon2-generation">
+                                    <option value="">Any Generation</option>
+                                    <option value="1">Gen 1</option>
+                                    <option value="2">Gen 2</option>
+                                    <option value="3">Gen 3</option>
+                                    <option value="4">Gen 4</option>
+                                    <option value="5">Gen 5</option>
+                                    <option value="6">Gen 6</option>
+                                    <option value="7">Gen 7</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="pokemon2-list" class="pokemon-list"></div>
+                        <input type="hidden" name="pokemon2" id="pokemon2" required>
+                        <div id="pokemon2-selection" style="margin-top: 10px; font-weight: bold;"></div>
+                    </div>
+                </div>
             </div>
-        {% endif %}
+            <button type="submit" id="predict-btn">Predict Battle Winner</button>
+            <div class="loading" id="loading-message">Predicting battle outcome... Please wait.</div>
+        </form>
         <div class="note">
             <p>This application uses a machine learning model to predict Pokemon battle outcomes. Search for Pokemon by their ID number, name, type, or generation, then select two Pokemon and click "Predict Battle Winner" to see which one would win in a battle.</p>
         </div>
     </div>
 
-    {% if current_user.is_authenticated %}
     <script>
         // Pokemon data will be loaded from the server
         let pokemonData = {{ pokemon_data|safe }};
@@ -493,6 +430,5 @@
             document.getElementById('loading-message').style.display = 'block';
         });
     </script>
-    {% endif %}
 </body>
 </html> 
