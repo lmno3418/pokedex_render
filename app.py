@@ -66,16 +66,47 @@ def init_db():
     if conn:
         try:
             with conn.cursor() as cur:
+                # First check if the users table exists
                 cur.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
-                        user_id VARCHAR(50) UNIQUE NOT NULL,
-                        email VARCHAR(100) UNIQUE NOT NULL,
-                        password_hash VARCHAR(255) NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'users'
+                    );
                 """)
-                conn.commit()
+                table_exists = cur.fetchone()[0]
+
+                if not table_exists:
+                    # Create the table if it doesn't exist
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS users (
+                            id SERIAL PRIMARY KEY,
+                            user_id VARCHAR(50) UNIQUE NOT NULL,
+                            email VARCHAR(100) UNIQUE NOT NULL,
+                            password_hash VARCHAR(255) NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    conn.commit()
+                    print("Database table created successfully!")
+                else:
+                    # Check if password_hash column exists
+                    cur.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.columns 
+                            WHERE table_name = 'users' AND column_name = 'password_hash'
+                        );
+                    """)
+                    column_exists = cur.fetchone()[0]
+
+                    if not column_exists:
+                        # Add the missing column
+                        cur.execute("""
+                            ALTER TABLE users 
+                            ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT '';
+                        """)
+                        conn.commit()
+                        print("Added password_hash column to existing users table!")
+
                 print("Database initialized successfully!")
         except Exception as e:
             print(f"Database initialization error: {e}")
