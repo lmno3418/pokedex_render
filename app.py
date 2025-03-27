@@ -20,6 +20,11 @@ import bcrypt
 from functools import wraps
 import logging
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
 # Load environment variables if .env file exists
 load_dotenv()
 
@@ -31,6 +36,15 @@ MODEL_PATH = os.environ.get("MODEL_PATH", "battle_1v1_model.joblib")
 POKEMON_CSV = os.environ.get("POKEMON_CSV", "pokemon.csv")
 POKEMON_DB_CSV = os.environ.get("POKEMON_DB_CSV", "pokemon_db.csv")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Log some diagnostic info
+logging.info(f"Starting application with:")
+logging.info(f"- MODEL_PATH: {MODEL_PATH}")
+logging.info(f"- POKEMON_CSV: {POKEMON_CSV}")
+logging.info(f"- POKEMON_DB_CSV: {POKEMON_DB_CSV}")
+logging.info(
+    f"- DATABASE_URL: {'[CONFIGURED]' if DATABASE_URL else '[NOT CONFIGURED]'}"
+)
 
 # Load the model
 try:
@@ -300,6 +314,17 @@ def register():
         email = request.form.get("email")
         password = request.form.get("password")
 
+        # Basic validation
+        if not user_id or not password:
+            flash("Username and password are required", "error")
+            return render_template(
+                "register.html", app_title="PokeDex: ML Powered Combat Interface"
+            )
+
+        # Email is optional in our templates
+        if not email:
+            email = f"{user_id}@example.com"  # Default email if not provided
+
         try:
             db_connection = get_db_connection()
             cursor = db_connection.cursor()
@@ -312,10 +337,15 @@ def register():
                     "register.html", app_title="PokeDex: ML Powered Combat Interface"
                 )
 
-            # Create new user with both email and password
-            password_hash = bcrypt.hashpw(
-                password.encode("utf-8"), bcrypt.gensalt()
-            ).decode("utf-8")
+            # Create new user with properly encoded password hash
+            # First generate salt and hash the password
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+            password_hash = hashed.decode("utf-8")
+
+            logging.info(f"Registering new user: {user_id}")
+
+            # Insert the new user into the database
             cursor.execute(
                 "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
                 (user_id, email, password_hash),
@@ -326,7 +356,7 @@ def register():
             return redirect(url_for("login"))
         except Exception as e:
             logging.error(f"Error in register route: {e}")
-            flash("An error occurred during registration", "error")
+            flash(f"Registration error: {str(e)}", "error")
 
     return render_template(
         "register.html", app_title="PokeDex: ML Powered Combat Interface"
@@ -350,10 +380,31 @@ def login():
             cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
             user = cursor.fetchone()
 
-            # Verify user exists and password matches
-            if user and bcrypt.checkpw(
-                password.encode("utf-8"), user[3].encode("utf-8")
-            ):
+            login_success = False
+            if user:
+                try:
+                    # Try to verify password with bcrypt
+                    password_hash = user[3] if len(user) > 3 else None
+                    if password_hash and bcrypt.checkpw(
+                        password.encode("utf-8"), password_hash.encode("utf-8")
+                    ):
+                        login_success = True
+                except Exception as pw_error:
+                    # Password verification error - possibly invalid hash format
+                    logging.error(f"Password verification error: {pw_error}")
+
+                    # For development/testing only: if password is stored in plain text, verify directly
+                    if (
+                        os.environ.get("FLASK_ENV") == "development"
+                        and len(user) > 2
+                        and user[2] == password
+                    ):
+                        login_success = True
+                        logging.warning(
+                            "Logging in with plain-text password comparison (development only)"
+                        )
+
+            if login_success:
                 session["user_id"] = user_id
                 flash("Login successful!", "success")
                 return redirect(url_for("index"))
