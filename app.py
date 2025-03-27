@@ -157,7 +157,7 @@ def prepare_pokemon_data():
             "id": int(row["#"]),
             "name": row["Name"].title(),
             "type1": row["Type 1"],
-            "type2": row["Type 2"] if pd.notna(row["Type 2"]) else None,
+            "type2": row["Type 2"] if pd.notna(row["Type 2"]) else "",
             "generation": int(row["Generation"]),
             "legendary": bool(row["Legendary"]),
         }
@@ -422,6 +422,13 @@ def index():
 
     # Pass the pokemon data as JSON for the frontend search
     pokemon_data_json = json.dumps(pokemon_frontend_data)
+
+    # Debug logging
+    print(f"Pokemon data count: {len(pokemon_frontend_data)}")
+    print(
+        f"First Pokemon sample: {pokemon_frontend_data[0] if pokemon_frontend_data else 'No Pokemon data'}"
+    )
+
     return render_template(
         "index.html",
         pokemon_data=pokemon_data_json,

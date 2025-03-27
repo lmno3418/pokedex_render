@@ -616,7 +616,14 @@
     
     <script>
         // Pokemon data passed from Flask
-        var pokemonData = JSON.parse('{{ pokemon_data|tojson }}');
+        var pokemonData;
+        try {
+            pokemonData = JSON.parse('{{ pokemon_data|tojson()|safe }}');
+            console.log("Successfully parsed Pokemon data:", pokemonData.length, "Pokemon found");
+        } catch (error) {
+            console.error("Error parsing Pokemon data:", error);
+            pokemonData = [];
+        }
         
         // DOM elements
         const pokemon1List = document.getElementById('pokemon1List');
@@ -630,25 +637,38 @@
         // Function to populate Pokemon lists
         function populatePokemonLists() {
             // Clear existing options
-            pokemon1List.innerHTML = '';
-            pokemon2List.innerHTML = '';
+            if (pokemon1List) pokemon1List.innerHTML = '';
+            if (pokemon2List) pokemon2List.innerHTML = '';
             
             // Add Pokemon to both lists
-            pokemonData.forEach(pokemon => {
-                const option1 = document.createElement('option');
-                option1.value = pokemon.name;
-                option1.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
-                option1.dataset.id = pokemon.id;
-                option1.dataset.type1 = pokemon.type1;
-                option1.dataset.type2 = pokemon.type2 || '';
-                option1.dataset.gen = pokemon.generation;
-                option1.dataset.legendary = pokemon.legendary;
+            if (pokemonData && pokemon1List && pokemon2List) {
+                pokemonData.forEach(pokemon => {
+                    const option1 = document.createElement('option');
+                    option1.value = pokemon.name;
+                    option1.textContent = `${pokemon.name} (${pokemon.type1}${pokemon.type2 ? '/' + pokemon.type2 : ''})`;
+                    option1.dataset.id = pokemon.id;
+                    option1.dataset.type1 = pokemon.type1;
+                    option1.dataset.type2 = pokemon.type2 || '';
+                    option1.dataset.gen = pokemon.generation;
+                    option1.dataset.legendary = pokemon.legendary;
+                    
+                    const option2 = option1.cloneNode(true);
+                    
+                    pokemon1List.appendChild(option1);
+                    pokemon2List.appendChild(option2);
+                });
                 
-                const option2 = option1.cloneNode(true);
+                // Display initial selections
+                updateSelectedPokemon();
                 
-                pokemon1List.appendChild(option1);
-                pokemon2List.appendChild(option2);
-            });
+                console.log("Pokemon lists populated with", pokemonData.length, "Pokemon");
+            } else {
+                console.error("Could not initialize Pokemon lists:", { 
+                    pokemonData: !!pokemonData, 
+                    pokemon1List: !!pokemon1List, 
+                    pokemon2List: !!pokemon2List 
+                });
+            }
         }
         
         // Function to filter Pokemon by search term
@@ -732,19 +752,33 @@
         
         // Initialize the page
         document.addEventListener('DOMContentLoaded', function() {
-            // Populate Pokemon lists
-            populatePokemonLists();
-            
-            // Add event listeners
-            pokemon1List.addEventListener('change', updateSelectedPokemon);
-            pokemon2List.addEventListener('change', updateSelectedPokemon);
-            
-            // Form submission handling
-            if (battleForm) {
-                battleForm.addEventListener('submit', function() {
-                    loadingIndicator.style.display = 'block';
-                    predictButton.disabled = true;
-                });
+            try {
+                console.log("DOM content loaded, initializing Pokemon selector");
+                // Log data for debugging
+                console.log("Pokemon data type:", typeof pokemonData);
+                console.log("Pokemon data length:", pokemonData ? pokemonData.length : "undefined");
+                
+                // Populate Pokemon lists
+                populatePokemonLists();
+                
+                console.log("Pokemon lists initialized");
+                
+                // Add event listeners
+                if (pokemon1List) pokemon1List.addEventListener('change', updateSelectedPokemon);
+                if (pokemon2List) pokemon2List.addEventListener('change', updateSelectedPokemon);
+                
+                // Form submission handling
+                if (battleForm) {
+                    battleForm.addEventListener('submit', function() {
+                        loadingIndicator.style.display = 'block';
+                        predictButton.disabled = true;
+                    });
+                    console.log("Battle form event handlers registered");
+                } else {
+                    console.error("Battle form element not found");
+                }
+            } catch (error) {
+                console.error("Error initializing Pokemon selector:", error);
             }
         });
     </script>
