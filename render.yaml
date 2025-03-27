@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: pokemon-battle-predictor
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_DEBUG
+        value: false
+      - key: PYTHON_VERSION
+        value: 3.10.0
+    healthCheckPath: /health 

@@ -51,7 +51,7 @@ POKEMON_CSV=pokemon.csv
 POKEMON_DB_CSV=pokemon_db.csv
 ```
 
-## Running the Application
+## Running Locally
 
 1. Make sure you have the following files in the project directory:
    - pokemon.csv
@@ -71,6 +71,42 @@ flask run
 ```
 
 3. Open your web browser and go to http://127.0.0.1:5000/
+
+## Deployment on Render
+
+This application is configured for easy deployment on Render. Follow these steps:
+
+1. Create a new account on [Render](https://render.com/) if you don't have one.
+
+2. Create a new Web Service on Render and connect to your GitHub repository.
+
+3. Use the following settings:
+   - **Name**: pokemon-battle-predictor (or your preferred name)
+   - **Environment**: Python
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+
+4. Add the following environment variables in the Render dashboard:
+   - `FLASK_APP`: app.py
+   - `FLASK_DEBUG`: false
+   - `PYTHON_VERSION`: 3.10.0
+
+5. Set the Health Check Path to `/health`
+
+6. Upload your data files to the service:
+   - pokemon.csv
+   - pokemon_db.csv
+   - battle_1v1_model.joblib
+
+7. Deploy your service!
+
+### Automatic Deployment with render.yaml
+
+If you prefer, you can use the included `render.yaml` file for automatic configuration:
+
+1. Fork this repository
+2. Create a new Blueprint on Render and connect to your GitHub repository
+3. Render will automatically configure the service based on the settings in `render.yaml`
 
 ## How to Use
 
@@ -99,4 +135,5 @@ The application requires specific versions of libraries which are listed in the 
 - pandas 2.2.3
 - scikit-learn 1.6.1
 - joblib 1.4.2
-- numpy 2.2.4 
+- numpy 2.2.4
+- gunicorn 21.2.0 (for production deployment) 

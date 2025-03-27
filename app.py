@@ -237,11 +237,17 @@ def predict():
         return jsonify({"error": f"Prediction error: {str(e)}"})
 
 
+# Health check endpoint for Render
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "healthy", "model_loaded": loaded_model is not None})
+
+
 if __name__ == "__main__":
-    # Get port from environment or use 5000 as default
+    # Get port from environment variable (Render will set this)
     port = int(os.environ.get("PORT", 5000))
 
-    # Run app with debug mode from environment or False as default
+    # In production, debug should be False
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
 
     print(
