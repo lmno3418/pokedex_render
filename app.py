@@ -297,6 +297,7 @@ def register():
     """
     if request.method == "POST":
         user_id = request.form.get("user_id")
+        email = request.form.get("email")
         password = request.form.get("password")
 
         try:
@@ -304,17 +305,20 @@ def register():
             cursor = db_connection.cursor()
 
             # Check if user already exists
-            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
             if cursor.fetchone():
                 flash("User ID already exists", "error")
                 return render_template(
                     "register.html", app_title="PokeDex: ML Powered Combat Interface"
                 )
 
-            # Create new user
+            # Create new user with both email and password
+            password_hash = bcrypt.hashpw(
+                password.encode("utf-8"), bcrypt.gensalt()
+            ).decode("utf-8")
             cursor.execute(
-                "INSERT INTO users (user_id, password_hash) VALUES (?, ?)",
-                (user_id, bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())),
+                "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
+                (user_id, email, password_hash),
             )
             db_connection.commit()
 
@@ -343,12 +347,12 @@ def login():
             cursor = db_connection.cursor()
 
             # Get user from database
-            cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+            cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
             user = cursor.fetchone()
 
             # Verify user exists and password matches
             if user and bcrypt.checkpw(
-                password.encode("utf-8"), user[2].encode("utf-8")
+                password.encode("utf-8"), user[3].encode("utf-8")
             ):
                 session["user_id"] = user_id
                 flash("Login successful!", "success")
@@ -378,12 +382,10 @@ def index():
     Render the home page with Pokemon selection form.
     """
     try:
-        db_connection = get_db_connection()
-        cursor = db_connection.cursor()
-
-        # Get the list of all Pokemon names
-        cursor.execute("SELECT name FROM pokemon ORDER BY name")
-        pokemon_list = [row[0] for row in cursor.fetchall()]
+        # Get Pokémon names from the pokemon_db_df DataFrame instead of the database
+        pokemon_list = [
+            name.title() for name in pokemon_db_df["Name"].sort_values().tolist()
+        ]
 
         # Check if user is logged in
         user_id = session.get("user_id", None)
@@ -452,6 +454,75 @@ def predict():
 @app.route("/health")
 def health_check():
     return jsonify({"status": "healthy", "model_loaded": loaded_model is not None})
+
+
+def predict_winner(pokemon1, pokemon2):
+    """
+    Predict which Pokemon would win in a battle.
+    """
+    try:
+        # Get Pokemon features from pokemon.csv for ML prediction
+        p1_name = pokemon1.lower()
+        p2_name = pokemon2.lower()
+
+        p1_data = get_features(
+            p1_name, pokemon_df, TYPE_ENCODINGS["P1_Type1"], TYPE_ENCODINGS["P1_Type2"]
+        )
+        p2_data = get_features(
+            p2_name, pokemon_df, TYPE_ENCODINGS["P2_Type1"], TYPE_ENCODINGS["P2_Type2"]
+        )
+
+        if p1_data is None or p2_data is None:
+            logging.error(
+                f"Pokemon not found: {p1_name if p1_data is None else p2_name}"
+            )
+            return "Unknown"
+
+        # Create input DataFrame
+        input_data = {
+            "P1_Type1": p1_data["Type1"],
+            "P1_Type2": p1_data["Type2"],
+            "P1_HP": p1_data["HP"],
+            "P1_Attack": p1_data["Attack"],
+            "P1_Defense": p1_data["Defense"],
+            "P1_Sp.Atk": p1_data["Sp.Atk"],
+            "P1_Sp.Def": p1_data["Sp.Def"],
+            "P1_Speed": p1_data["Speed"],
+            "P1_Generation": p1_data["Generation"],
+            "P1_Legendary": p1_data["Legendary"],
+            "P2_Type1": p2_data["Type1"],
+            "P2_Type2": p2_data["Type2"],
+            "P2_HP": p2_data["HP"],
+            "P2_Attack": p2_data["Attack"],
+            "P2_Defense": p2_data["Defense"],
+            "P2_Sp.Atk": p2_data["Sp.Atk"],
+            "P2_Sp.Def": p2_data["Sp.Def"],
+            "P2_Speed": p2_data["Speed"],
+            "P2_Generation": p2_data["Generation"],
+            "P2_Legendary": p2_data["Legendary"],
+        }
+
+        input_df = pd.DataFrame([input_data])
+
+        # Make prediction
+        prediction = loaded_model.predict(input_df)
+        return "Pokemon 1" if prediction[0] == 1 else "Pokemon 2"
+    except Exception as e:
+        logging.error(f"Error in prediction: {e}")
+        return "Unknown"
+
+
+def log_prediction(pokemon1, pokemon2, winner, user_id):
+    """
+    Log prediction to database for analysis (stub function)
+    """
+    # In a full implementation, this would save the prediction to a database
+    logging.info(
+        f"Battle prediction: {pokemon1} vs {pokemon2}, winner: {winner}, user: {user_id}"
+    )
+
+    # We could implement actual database logging here in the future
+    pass
 
 
 if __name__ == "__main__":
