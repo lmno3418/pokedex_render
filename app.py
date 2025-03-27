@@ -2,19 +2,34 @@ import joblib
 import pandas as pd
 import json
 import numpy as np
-from flask import Flask, render_template, request, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    redirect,
+    url_for,
+    flash,
+    session,
+)
 from dotenv import load_dotenv
 import os
+import psycopg2
+from psycopg2 import sql
+import bcrypt
+from functools import wraps
 
 # Load environment variables if .env file exists
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "pokemonbattlepredictor2024")
 
 # Get file paths from environment variables
 MODEL_PATH = os.environ.get("MODEL_PATH", "battle_1v1_model.joblib")
 POKEMON_CSV = os.environ.get("POKEMON_CSV", "pokemon.csv")
 POKEMON_DB_CSV = os.environ.get("POKEMON_DB_CSV", "pokemon_db.csv")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # Load the model
 try:
@@ -32,6 +47,58 @@ pokemon_df["Name"] = pokemon_df["Name"].str.lower()
 # Load Pokémon data for selection
 pokemon_db_df = pd.read_csv(POKEMON_DB_CSV)
 pokemon_db_df["Name"] = pokemon_db_df["Name"].str.lower()
+
+
+# Database setup
+def get_db_connection():
+    """Create a connection to the PostgreSQL database"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return None
+
+
+def init_db():
+    """Initialize the database with the users table"""
+    conn = get_db_connection()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        user_id VARCHAR(50) UNIQUE NOT NULL,
+                        email VARCHAR(100) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
+                print("Database initialized successfully!")
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+        finally:
+            conn.close()
+    else:
+        print("Could not connect to database for initialization")
+
+
+# Initialize the database when the app starts
+init_db()
+
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please log in to access this page", "error")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 # Prepare pokemon data for frontend search
@@ -169,17 +236,137 @@ def get_features(name, df, type1_enc, type2_enc):
     }
 
 
+# Authentication routes
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    """Handle user registration"""
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        # Simple validation
+        if not user_id or not email or not password:
+            flash("All fields are required", "error")
+            return render_template("register.html")
+
+        # Check if user already exists
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    # Check if user_id exists
+                    cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+                    if cur.fetchone():
+                        flash("User ID already taken", "error")
+                        conn.close()
+                        return render_template("register.html")
+
+                    # Check if email exists
+                    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+                    if cur.fetchone():
+                        flash("Email already registered", "error")
+                        conn.close()
+                        return render_template("register.html")
+
+                    # Hash the password
+                    password_hash = bcrypt.hashpw(
+                        password.encode("utf-8"), bcrypt.gensalt()
+                    )
+
+                    # Insert new user
+                    cur.execute(
+                        "INSERT INTO users (user_id, email, password_hash) VALUES (%s, %s, %s)",
+                        (user_id, email, password_hash.decode("utf-8")),
+                    )
+                    conn.commit()
+                    flash("Registration successful! Please log in", "success")
+                    return redirect(url_for("login"))
+            except Exception as e:
+                flash(f"Registration error: {str(e)}", "error")
+            finally:
+                conn.close()
+        else:
+            flash("Database connection error", "error")
+
+        return render_template("register.html")
+
+    return render_template("register.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Handle user login"""
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        password = request.form.get("password")
+
+        # Simple validation
+        if not user_id or not password:
+            flash("User ID and password are required", "error")
+            return render_template("login.html")
+
+        # Check user credentials
+        conn = get_db_connection()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT user_id, password_hash FROM users WHERE user_id = %s",
+                        (user_id,),
+                    )
+                    user = cur.fetchone()
+
+                    if user and bcrypt.checkpw(
+                        password.encode("utf-8"), user[1].encode("utf-8")
+                    ):
+                        # Set session
+                        session["user_id"] = user[0]
+                        flash("Login successful!", "success")
+                        return redirect(url_for("index"))
+                    else:
+                        flash("Invalid credentials", "error")
+            except Exception as e:
+                flash(f"Login error: {str(e)}", "error")
+            finally:
+                conn.close()
+        else:
+            flash("Database connection error", "error")
+
+        return render_template("login.html")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    """Handle user logout"""
+    session.pop("user_id", None)
+    flash("You have been logged out", "success")
+    return redirect(url_for("login"))
+
+
 @app.route("/")
 def index():
     """
     Render the main page with Pokemon selection interface
     """
+    # Check if user is logged in
+    is_authenticated = "user_id" in session
+    user_id = session.get("user_id", None)
+
     # Pass the pokemon data as JSON for the frontend search
     pokemon_data_json = json.dumps(pokemon_frontend_data)
-    return render_template("index.html", pokemon_data=pokemon_data_json)
+    return render_template(
+        "index.html",
+        pokemon_data=pokemon_data_json,
+        is_authenticated=is_authenticated,
+        user_id=user_id,
+    )
 
 
 @app.route("/predict", methods=["POST"])
+@login_required
 def predict():
     """
     Handle prediction request when form is submitted
@@ -232,7 +419,12 @@ def predict():
             "pokemon1": p1_name.title(),
             "pokemon2": p2_name.title(),
         }
-        return render_template("result.html", result=result)
+        return render_template(
+            "result.html",
+            result=result,
+            is_authenticated=True,
+            user_id=session.get("user_id"),
+        )
     except Exception as e:
         return jsonify({"error": f"Prediction error: {str(e)}"})
 
@@ -248,9 +440,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
 
     # In production, debug should be False
-    debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
-
-    print(
-        f"Starting server on port {port} with debug mode {'enabled' if debug_mode else 'disabled'}"
-    )
-    app.run(host="0.0.0.0", port=port, debug=debug_mode)
+    debug = os.environ.get("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
+    app.run(host="0.0.0.0", port=port, debug=debug)
